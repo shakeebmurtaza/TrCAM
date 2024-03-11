@@ -1,0 +1,3 @@
+# dlib/crf/*
+__pycache__
+folds/*

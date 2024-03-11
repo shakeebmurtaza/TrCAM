@@ -1,0 +1,74 @@
+from main import PerformanceMeter
+import matplotlib
+matplotlib.use('Agg')
+from matplotlib import pyplot as plt
+import pickle
+import os
+import numpy as np
+
+def draw_scatterplt(exp_path, save_dir, save_file_name, fig_size, plt_adjust_values, text_fontsize, fig_dpi, save_pdf=True):
+    for metric in [('localization_IOU_50', 'MaxBoxAcc', {'legand_loc': 'lower left'}), ('classification', 'CL Accuracy', {'legand_loc': 'lower right'})]:
+    
+        x_max_box_acc_over_test_for_diff_exps = []
+        y_max_box_acc_over_test_for_diff_exps = []
+        x_classif_acc_over_test_for_diff_exps = []
+        y_classif_acc_over_test_for_diff_exps = []
+        scale = []
+        fig = plt.figure(figsize=fig_size)
+
+        default_scale = matplotlib.rcParams['lines.markersize'] ** 2.6
+
+        for exp_id in range(299):
+            log_file_path = os.path.join(exp_path.format(exp_id), 'performance_log.pickle')
+            # if exp_id in [96, 122]:
+            #     continue
+            with open(log_file_path, 'rb') as f:
+                results = pickle.load(f)
+            x_max_box_acc_over_test_for_diff_exps.append(results['val']['localization_IOU_50'].best_epoch)
+            y_max_box_acc_over_test_for_diff_exps.append(results['test'][metric[0]].value_per_epoch[1])
+            
+            x_classif_acc_over_test_for_diff_exps.append(results['val']['classification'].best_epoch)
+            y_classif_acc_over_test_for_diff_exps.append(results['test'][metric[0]].value_per_epoch[2])
+
+            scale.append(default_scale)
+            
+        apla_for_scatter_plt = 0.3
+        plt_maxboxacc = plt.scatter(x_max_box_acc_over_test_for_diff_exps, y_max_box_acc_over_test_for_diff_exps, s=scale, alpha=apla_for_scatter_plt, color='green')
+        plt_cls_acc = plt.scatter(x_classif_acc_over_test_for_diff_exps, y_classif_acc_over_test_for_diff_exps, s=scale, alpha=apla_for_scatter_plt, color='red')
+
+        #draw average values
+        plt.scatter([np.average(x_max_box_acc_over_test_for_diff_exps)], [np.average(y_max_box_acc_over_test_for_diff_exps)], s=[default_scale*16], alpha=apla_for_scatter_plt*2.6, color='green')
+        plt.scatter([np.average(x_classif_acc_over_test_for_diff_exps)], [np.average(y_classif_acc_over_test_for_diff_exps)], s=[default_scale*16], alpha=apla_for_scatter_plt*2.6, color='red')
+
+        plt.axhline(y = np.average(y_max_box_acc_over_test_for_diff_exps), color = 'green', linestyle = '--')
+        plt.axhline(y = np.average(y_classif_acc_over_test_for_diff_exps), color = 'red', linestyle = '--')
+        #draw average values
+        
+        # plt.xlabel('Selected Epoch over MaxBoxAcc (Green) and CL Acc (Red)', fontsize=text_fontsize+2)
+        plt.xlabel('Epoch', fontsize=text_fontsize+2)
+        plt.ylabel(metric[1], fontsize=text_fontsize+2)
+
+        SLEC_prepend = ' Selection'
+        plt.legend((plt_maxboxacc, plt_cls_acc),
+                (f'MaxBoxAcc{SLEC_prepend}', f'CL Accuracy{SLEC_prepend}'),
+                scatterpoints=1,
+                loc=metric[2]['legand_loc'],
+                ncol=1,
+                fontsize=text_fontsize,
+                columnspacing=0.3,
+                handletextpad=0.05)
+
+        plt.grid()
+        if not save_pdf:
+            fig.text(.5, 0.9, "CUB: Model selection (LOC: Green. vs. CL: Red) over test localization (MaxBoxAcc) performance. Each point indicates the epoch (x-axis) at \nthe best model is selected and its corresponding localization performance (y-axis). Large circles indicate the average over all WSOL methods.", ha='center')
+        if save_pdf:
+            plt.tight_layout()
+        plt.subplots_adjust(bottom=plt_adjust_values['bottom'], right=plt_adjust_values['right'], top=plt_adjust_values['top'], left=plt_adjust_values['left'])
+
+        # file_name = '1_'+metric[1].replace(' ', '')+'_selected_using_maxbox_and_cls_for_diff_exps_over_testset.'
+        # file_name += 'pdf' if save_pdf else 'png'
+        save_file_name += '.pdf' if save_pdf else '.png'
+        
+        plt.savefig(os.path.join(save_dir, save_file_name), dpi=fig_dpi)
+        # print('results from maxboxacc and cls acc over testset (scatter plot)')
+        # print(f'{metric[1]}: Seelcted over MaxBoxAcc: {max(y_max_box_acc_over_test_for_diff_exps)}', f'Seelcted over  CL Accuracy: {max(y_classif_acc_over_test_for_diff_exps)}')
